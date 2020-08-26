@@ -1,0 +1,12 @@
+language: php
+dist: trusty
+php:
+  - '7.0'
+  - hhvm
+  - nightly
+before_script:
+  - curl -sSfL -o ~/.phpenv/versions/hhvm/bin/phpunit https://phar.phpunit.de/phpunit-5.7.phar
+script:
+  - echo "Where is $HOME"
+notifications:
+  email: false

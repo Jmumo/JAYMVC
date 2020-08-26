@@ -5,11 +5,12 @@
     max-width: 700px;
     max-height: 500px;
 }
-.small{
-    margin-top:10px;
+
+.small {
+    margin-top: 10px;
 }
 
- .year{
+.year {
     font-size: 60px;
 
 }
@@ -26,7 +27,7 @@
     background-size: cover;
     background-position: center;
     /* margin-left: -10; */
-    margin-top:10px;
+    margin-top: 10px;
     height: 60vh;
     color: #fff;
     font-family: sans-serif;
@@ -42,15 +43,15 @@
 #time-cover * {
     z-index: 1;
 }
-.welcome{
-    font-family:OCR;
-    font-style:ALGERIAN;
+
+.welcome {
+    font-family: OCR;
+    font-style: ALGERIAN;
 }
 
 .countdown {
     display: flex;
     transform: scale(2);
-   
 
 
 }
@@ -69,6 +70,7 @@
     margin: 10px;
 
 }
-#time h2{
-    margin:0,0,5px;
+
+#time h2 {
+    margin: 0, 0, 5px;
 }
