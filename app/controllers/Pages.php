@@ -1,32 +1,36 @@
 <?php
 
-class Pages extends controller{
- 
- public function __construct(){
+class Pages extends controller
+{
 
-   
- }
+    public function __construct()
+    {
 
- public function index(){
 
-   if(Pages::isLoggedIn()){
+    }
 
-   Pages::redirect('posts');
+    public function index()
+    {
 
-   }
-   
+        if (Pages::isLoggedIn()) {
 
-   $data = [
-     'title' =>'wecolme',
-     
-   ];
-   $this->view('pages/index',$data);
+            Pages::redirect('posts');
 
-  
- }
+        }
 
- public function about(){
- $this->view('pages/about',['title'=>'about page']);
- }
 
- }  
+        $data = [
+            'title' => 'wecolme',
+
+        ];
+        $this->view('pages/index', $data);
+
+
+    }
+
+    public function about()
+    {
+        $this->view('pages/about', ['title' => 'about page']);
+    }
+
+}

@@ -5,9 +5,9 @@
     <!-- /.container -->
 </footer>
 </div>
-<script src="<?php echo URLROOT?>/js/main.js"></script>
-<script src="<?php echo URLROOT?>/js/jquery.js"></script>
-<script src="<?php echo URLROOT;?>/includes/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo URLROOT ?>/js/main.js"></script>
+<script src="<?php echo URLROOT ?>/js/jquery.js"></script>
+<script src="<?php echo URLROOT; ?>/includes/bootstrap/js/bootstrap.bundle.min.js"></script>
 
 </body>
 
