@@ -1,0 +1,106 @@
+
+    @Override
+    public Mono<HttpResponse> sendExpiryNotification(@NonNull String requestId, @NonNull LimitExpiryData limitExpiryData) {
+
+       return Mono.fromSupplier(()->{
+           AtomicReference<HttpResponse> res = new AtomicReference<>();
+
+
+           try {
+               this.scoreCardRepository.findById(limitExpiryData.getScorecardId())
+                       .ifPresentOrElse(scoreCard -> {
+                           settingsService.subsidiaryByBankId(scoreCard.getBankId())
+                                   .ifPresentOrElse(subsidiaryType -> {
+                                       Anchor anchor = anchorRepository.findAnchorByEcoCode(limitExpiryData.getEcoCode()).orElse(null);
+
+                                       Map<TagType, String> tags = new HashMap<>();
+
+                                       String customerMessage = settingsService.getNotificationMessage(
+                                               String.valueOf(scoreCard.getPublicId())
+                                               , ErrorType.NOTIFICATION_20, scoreCard.getBankId(), LanguageType.ENGLISH, tags);
+
+                                       if (anchor != null) {
+                                           tags.put(TagType.ECOSYSTEM_NAME, anchor.getEcosystemName());
+                                           Product product = this.productService.product(String.valueOf(anchor.getPublicId()), subsidiaryType, anchor.getProduct()).orElse(null);
+                                           EcosystemExpiryDto ecosystemExpiryDto = new EcosystemExpiryDto(scoreCard.getRetailerAccount());
+
+                                           String loanExpiryDate;
+                                           try {
+                                               loanExpiryDate = settingsService.integrationService(String.valueOf(scoreCard.getPublicId()),
+                                                       subsidiaryType, anchor.getProduct(), product).getEcosystemExpiryDate(ecosystemExpiryDto, String.valueOf(scoreCard.getPublicId()), scoreCard.getBankId());
+                                           } catch (Exception e) {
+                                               scoreCard.setNotificationRetrial(true);
+                                               scoreCardRepository.save(scoreCard);
+                                               res.set(this.httpUtils.response(ErrorType.ERROR_734, LanguageType.ENGLISH, null, null));
+                                               log.log(Level.WARNING, "Error while getting Loan Expiry Info");
+                                               throw new RuntimeException(e.getMessage());
+                                           }
+
+
+
+                                           LocalDate today = LocalDate.now();
+                                           LocalDate thirtyDaysFromToday = today.plusDays(30);
+
+                                           tags.put(TagType.EXPIRY_DATE,loanExpiryDate);
+
+                                           if (loanExpiryDate != null && !loanExpiryDate.isBlank()) {
+                                               if ((formatDate(loanExpiryDate).minusDays(30).equals(LocalDate.now()) &&
+                                                       (scoreCard.getLastExpiryDateNotificationDate() == null || scoreCard.getLastExpiryDateNotificationDate().plusDays(30).isBefore(LocalDate.now())))) {
+
+                                                   if (this.registerNotification(subsidiaryType, String.valueOf(scoreCard.getPublicId()), scoreCard.getId(), customerMessage.trim(), null, scoreCard.getNominatedPhone(), NotificationType.SMS)){
+                                                       scoreCard.setExpiryDate(formatDate(loanExpiryDate));
+                                                       scoreCard.setLastExpiryDateNotificationSentFor(formatDate(loanExpiryDate));
+                                                       scoreCard.setLastExpiryDateNotificationDate(LocalDate.now());
+                                                       scoreCard.setNotificationRetrial(false);
+                                                       scoreCardRepository.save(scoreCard);
+                                                       res.set(this.httpUtils.response(ErrorType.SUCCESS, LanguageType.ENGLISH, null, null));
+                                                   }else{
+                                                       scoreCard.setNotificationRetrial(true);
+                                                       scoreCardRepository.save(scoreCard);
+                                                       res.set(this.httpUtils.response(ErrorType.ERROR_734, LanguageType.ENGLISH, null, null));
+                                                   }
+
+                                               } else if (
+                                                       scoreCard.getExpiryDate() != null &&
+                                                               scoreCard.getExpiryDate() != scoreCard.getLastExpiryDateNotificationSentFor()
+                                                               && ChronoUnit.DAYS.between(scoreCard.getLastExpiryDateNotificationDate(), today) > 30
+                                                       && formatDate(loanExpiryDate).isAfter(thirtyDaysFromToday)
+                                               ) {
+                                                   if (
+                                                           this.registerNotification(subsidiaryType, String.valueOf(scoreCard.getPublicId()), scoreCard.getId(), customerMessage.trim(), null, scoreCard.getNominatedPhone(), NotificationType.SMS)
+                                                   ){
+                                                       res.set(this.httpUtils.response(ErrorType.SUCCESS, LanguageType.ENGLISH, null, null));
+                                                       scoreCard.setExpiryDate(formatDate(loanExpiryDate));
+                                                       scoreCard.setLastExpiryDateNotificationSentFor(formatDate(loanExpiryDate));
+                                                       scoreCard.setLastExpiryDateNotificationDate(LocalDate.now());
+                                                       scoreCard.setNotificationRetrial(false);
+                                                       scoreCardRepository.save(scoreCard);
+                                                   }else {
+                                                       scoreCard.setNotificationRetrial(true);
+                                                       scoreCardRepository.save(scoreCard);
+                                                       res.set(this.httpUtils.response(ErrorType.ERROR_734, LanguageType.ENGLISH, null, scoreCard.getId()));
+                                                   }
+                                               }else if (scoreCard.isNotificationRetrial()) {
+                                                   this.registerNotification(subsidiaryType, String.valueOf(scoreCard.getPublicId()), scoreCard.getId(), customerMessage.trim(), null, scoreCard.getNominatedPhone(), NotificationType.SMS);
+                                                   scoreCard.setNotificationRetrial(false);
+                                                   scoreCardRepository.save(scoreCard);
+                                               }else{
+                                                   res.set(this.httpUtils.response(ErrorType.ERROR_735, LanguageType.ENGLISH, null, scoreCard.getId()));
+                                                   log.log(Level.WARNING, "Notification Not sent for the scorecard Retrial", scoreCard.getPublicId());
+                                               }
+                                           } else {
+                                               log.log(Level.SEVERE, "Blank Expiry Date for Score Card [%s]", scoreCard.getPublicId());
+                                               res.set(this.httpUtils.response(ErrorType.SUCCESS, LanguageType.ENGLISH, null, null));
+                                           }
+
+                                       } else {
+                                           log.log(Level.SEVERE, "Anchor id [%s] not found", limitExpiryData.getEcoCode());
+                                       }
+                                   }, () -> log.log(Level.SEVERE, "Subsidiary not found for Bank ID [%s]", scoreCard.getBankId()));
+                       }, () -> log.log(Level.SEVERE, "Score card not found for ID [%s]", limitExpiryData.getScorecardId()));
+           } catch (Exception e) {
+               log.log(Level.SEVERE, String.format("LimitExpiry Actor error [ %s ]", limitExpiryData.getEcoCode()), e);
+           }
+           return res.get();
+       });
+    }
